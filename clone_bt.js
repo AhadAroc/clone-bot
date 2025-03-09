@@ -5,6 +5,7 @@ const axios = require('axios');
 const BOT_TOKEN = '7901374595:AAGTDSReIu3gRhsDRXxUIR2UJR5MIK4kMCE'; // Replace with your bot token
 const ADMIN_ID = 123456789; // Replace with your Telegram Admin ID
 const EXPIRY_DATE = '2025/03/15';
+const PORT = process.env.PORT || 4000;
 
 // Store bot subscriptions (you can use a database instead)
 const activeBots = {};
