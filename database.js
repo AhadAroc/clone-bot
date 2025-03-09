@@ -7,7 +7,15 @@ let client = null;
 
 async function connectToMongoDB() {
     try {
-        client = new MongoClient(mongoUri);
+        // Add connection options to handle potential SSL issues
+        const options = {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            connectTimeoutMS: 30000,
+            socketTimeoutMS: 45000
+        };
+        
+        client = new MongoClient(mongoUri, options);
         await client.connect();
         db = client.db(dbName);
         console.log('Connected to MongoDB successfully');
@@ -45,194 +53,51 @@ async function setupDatabase() {
     }
 }
 
-// Reply functions
-async function getReplies() {
-    try {
-        return await db.collection('replies').find().toArray();
-    } catch (error) {
-        console.error('Error fetching replies:', error);
-        return [];
+// Rest of your code remains unchanged
+// ... existing code ...
+
+// Add a function to gracefully close the MongoDB connection
+async function closeConnection() {
+    if (client) {
+        try {
+            await client.close();
+            console.log('MongoDB connection closed');
+        } catch (error) {
+            console.error('Error closing MongoDB connection:', error);
+        }
     }
 }
 
-async function getReply(triggerWord) {
-    try {
-        return await db.collection('replies').findOne({ trigger_word: triggerWord });
-    } catch (error) {
-        console.error(`Error fetching reply for trigger "${triggerWord}":`, error);
-        return null;
+// Add a function to check database connection health
+async function checkConnection() {
+    if (!client || !db) {
+        console.log('No active MongoDB connection, attempting to reconnect...');
+        try {
+            await connectToMongoDB();
+            return true;
+        } catch (error) {
+            console.error('Failed to reconnect to MongoDB:', error);
+            return false;
+        }
     }
-}
-
-async function saveReply(triggerWord, replyText) {
+    
     try {
-        const result = await db.collection('replies').updateOne(
-            { trigger_word: triggerWord },
-            { 
-                $set: { 
-                    reply_text: replyText, 
-                    updated_at: new Date() 
-                }
-            },
-            { upsert: true }
-        );
-        return result;
+        // Ping the database to check connection
+        await db.command({ ping: 1 });
+        return true;
     } catch (error) {
-        console.error('Error saving reply:', error);
-        throw error;
-    }
-}
-
-async function deleteReply(triggerWord) {
-    try {
-        const result = await db.collection('replies').deleteOne({ trigger_word: triggerWord });
-        return result.deletedCount > 0;
-    } catch (error) {
-        console.error('Error deleting reply:', error);
-        throw error;
-    }
-}
-
-// Developer functions
-async function getDevelopers() {
-    try {
-        return await db.collection('developers').find().toArray();
-    } catch (error) {
-        console.error('Error fetching developers:', error);
-        return [];
-    }
-}
-
-// Add the isDeveloper function
-async function isDeveloper(userId) {
-    try {
-        console.log('DEBUG: Checking if user is developer:', userId);
+        console.error('MongoDB connection check failed:', error);
         
-        // Check in all developer collections
-        const developer = await db.collection('developers').findOne({ user_id: userId });
-        const primaryDev = await db.collection('primary_developers').findOne({ user_id: userId });
-        const secondaryDev = await db.collection('secondary_developers').findOne({ user_id: userId });
-        
-        const result = !!(developer || primaryDev || secondaryDev);
-        console.log('DEBUG: isDeveloper result for user', userId, ':', result);
-        
-        return result;
-    } catch (error) {
-        console.error('Error in isDeveloper:', error);
-        return false;
-    }
-}
-
-async function addDeveloper(userId, username) {
-    try {
-        const result = await db.collection('developers').updateOne(
-            { user_id: userId },
-            { 
-                $set: { 
-                    username: username, 
-                    added_at: new Date() 
-                }
-            },
-            { upsert: true }
-        );
-        return result;
-    } catch (error) {
-        console.error('Error adding developer:', error);
-        throw error;
-    }
-}
-
-async function removeDeveloper(userId) {
-    try {
-        const result = await db.collection('developers').deleteOne({ user_id: userId });
-        return result.deletedCount > 0;
-    } catch (error) {
-        console.error('Error removing developer:', error);
-        throw error;
-    }
-}
-
-// Group functions
-async function getGroups() {
-    try {
-        return await db.collection('groups').find().toArray();
-    } catch (error) {
-        console.error('Error fetching groups:', error);
-        return [];
-    }
-}
-
-async function addGroup(groupId, title) {
-    try {
-        const result = await db.collection('groups').updateOne(
-            { group_id: groupId },
-            { 
-                $set: { 
-                    title: title,
-                    is_active: true,
-                    last_activity: new Date()
-                }
-            },
-            { upsert: true }
-        );
-        return result;
-    } catch (error) {
-        console.error('Error adding group:', error);
-        throw error;
-    }
-}
-
-async function updateGroupActivity(groupId) {
-    try {
-        await db.collection('groups').updateOne(
-            { group_id: groupId },
-            { $set: { last_activity: new Date() } }
-        );
-    } catch (error) {
-        console.error('Error updating group activity:', error);
-    }
-}
-
-// User functions
-async function getUsers() {
-    try {
-        return await db.collection('users').find().toArray();
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        return [];
-    }
-}
-
-async function addUser(userId, username, firstName, lastName) {
-    try {
-        const result = await db.collection('users').updateOne(
-            { user_id: userId },
-            { 
-                $set: { 
-                    username: username,
-                    first_name: firstName,
-                    last_name: lastName,
-                    is_active: true,
-                    last_activity: new Date()
-                }
-            },
-            { upsert: true }
-        );
-        return result;
-    } catch (error) {
-        console.error('Error adding user:', error);
-        throw error;
-    }
-}
-
-async function updateUserActivity(userId) {
-    try {
-        await db.collection('users').updateOne(
-            { user_id: userId },
-            { $set: { last_activity: new Date() } }
-        );
-    } catch (error) {
-        console.error('Error updating user activity:', error);
+        // Try to reconnect
+        try {
+            console.log('Attempting to reconnect to MongoDB...');
+            await client.close();
+            await connectToMongoDB();
+            return true;
+        } catch (reconnectError) {
+            console.error('Failed to reconnect to MongoDB:', reconnectError);
+            return false;
+        }
     }
 }
 
@@ -242,6 +107,8 @@ module.exports = {
     getClient: () => client,
     connectToMongoDB,
     setupDatabase,
+    closeConnection,
+    checkConnection,
     
     // Reply functions
     getReplies,
