@@ -1,0 +1,28 @@
+{
+  "name": "protection-bot-manager",
+  "version": "1.0.0",
+  "description": "A Telegram bot that manages protection bots",
+  "main": "clone_bt.js",
+  "scripts": {
+    "start": "node clone_bt.js",
+    "dev": "nodemon clone_bt.js"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "protection",
+    "manager"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "telegraf": "^4.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
