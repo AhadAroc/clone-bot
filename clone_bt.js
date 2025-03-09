@@ -2,7 +2,7 @@ const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 
 // ===== Configuration =====
-const BOT_TOKEN = ''; // Replace with your bot token
+const BOT_TOKEN = '7901374595:AAGTDSReIu3gRhsDRXxUIR2UJR5MIK4kMCE'; // Replace with your bot token
 const ADMIN_ID = 123456789; // Replace with your Telegram Admin ID
 const EXPIRY_DATE = '2025/03/15';
 
