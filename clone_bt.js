@@ -74,37 +74,78 @@ module.exports = {
             
             fs.writeFileSync(configPath, configContent);
             
-            // Create a custom bot file for this instance
-            const botFilePath = path.join(BOTS_DIR, `bot_${botInfo.id}.js`);
-            const botFileContent = `
+           // Create a custom bot file for this instance
+const botFilePath = path.join(BOTS_DIR, `bot_${botInfo.id}.js`);
+const botFileContent = `
 const { Telegraf } = require('telegraf');
+const path = require('path');
+const config = require('./config');
 const database = require('../database');
-const { setupActions } = require('../actions');
-const { setupMiddlewares } = require('../middlewares');
-const { setupCommands } = require('../commands');
+const fs = require('fs');
 
 // Load the bot-specific config
-const config = require('./${botInfo.id}_config.js');
-const token = config.token;
+const botConfig = require('./${botInfo.id}_config.js');
+const token = botConfig.token;
 
 // Create a new bot instance
 const bot = new Telegraf(token);
 
-// Initialize database
+// Initialize database and bot
 async function initializeApp() {
     try {
         // Setup database first
         await database.setupDatabase();
-        console.log('Database initialized successfully');
+        console.log('Database initialized successfully for bot @' + botConfig.botUsername);
         
-        // Setup middlewares and actions
-        setupMiddlewares(bot);
-        setupCommands(bot);
-        setupActions(bot);
+        // Basic commands
+        bot.start((ctx) => {
+            ctx.reply('مرحبا بك في بوت الحماية! أنا هنا لمساعدتك في حماية مجموعاتك.');
+        });
+        
+        bot.help((ctx) => {
+            ctx.reply('هذا بوت حماية المجموعات. أضفني إلى مجموعتك وقم بترقيتي كمشرف للاستفادة من خدمات الحماية.');
+        });
+        
+        bot.command('status', (ctx) => {
+            ctx.reply('البوت يعمل بشكل طبيعي! ✅');
+        });
+        
+        // Load additional modules if they exist
+        try {
+            if (fs.existsSync(path.join(__dirname, '../actions.js'))) {
+                const { setupActions } = require('../actions');
+                setupActions(bot);
+                console.log('Actions loaded for bot @' + botConfig.botUsername);
+            }
+            
+            if (fs.existsSync(path.join(__dirname, '../middlewares.js'))) {
+                const { setupMiddlewares } = require('../middlewares');
+                setupMiddlewares(bot);
+                console.log('Middlewares loaded for bot @' + botConfig.botUsername);
+            }
+            
+            if (fs.existsSync(path.join(__dirname, '../commands.js'))) {
+                const { setupCommands } = require('../commands');
+                setupCommands(bot);
+                console.log('Commands loaded for bot @' + botConfig.botUsername);
+            }
+        } catch (error) {
+            console.error('Error loading modules:', error);
+        }
         
         // Start the bot
         await bot.launch();
-        console.log(\`Bot \${config.botUsername} started successfully\`);
+        console.log(\`Bot \${botConfig.botUsername} started successfully\`);
+        
+        // Send a message to the bot creator
+        try {
+            await bot.telegram.sendMessage(
+                botConfig.createdBy,
+                \`✅ بوت الحماية الخاص بك (@\${botConfig.botUsername}) تم تشغيله بنجاح!\\n\\nيمكنك الآن استخدام البوت بإرسال /start\`
+            );
+        } catch (err) {
+            console.error('Could not send notification to creator:', err);
+        }
     } catch (error) {
         console.error('Error initializing application:', error);
         process.exit(1);
@@ -117,13 +158,13 @@ initializeApp();
 // Enable graceful stop
 process.once('SIGINT', () => {
     bot.stop('SIGINT');
-    database.client.close();
+    if (database.client) database.client.close();
 });
 process.once('SIGTERM', () => {
     bot.stop('SIGTERM');
-    database.client.close();
+    if (database.client) database.client.close();
 });
-            `;
+`;
             
             fs.writeFileSync(botFilePath, botFileContent);
             
